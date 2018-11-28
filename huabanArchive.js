@@ -25,9 +25,11 @@ function boardComp(boardA,boardB){
 function getBoardHtml(board){
     let pins = board.pins;
     let pinHTML = '';
+    let clearStyle = ''
     for(let i=0;i<pins.length;i++){
         let pin = pins[i]
         if(i == 0){
+            clearStyle = 'style="clear:both"'
             pinHTML += '<img src="//img.hb.aicdn.com/'+ pin.file.key +'" data-baiduimageplus-ignore="1" class="large">'
         }
         else{
@@ -35,7 +37,7 @@ function getBoardHtml(board){
         }
     }
 
-    return '<div data-id="'+ board.board_id +'" data-seq="'+ board.board_id +'"\
+    return '<div data-id="'+ board.board_id +'" data-seq="'+ board.board_id + clearStyle +'"\
     class="Board wfc inited">\
     <div class="draglay"></div>\
     <div title="拖动改变排序" class="drag-icon"></div><a href="/boards/'+ board.board_id +'/" target="_blank" class="link  x">' + pinHTML +'\
@@ -67,54 +69,75 @@ function getBoardsHTML(boards){
 function genHTML(keyList,map){
     let html = '<div onclick="app.requireLogin(function() {app.showDialogBox(\'create_board\');});" class="wfc add-board"><div class="inner"><i></i><span>创建画板</span></div></div>'
     for(let key of keyList){
-        html += '</br><h3>'+key+'</h3></br>'
+        html += '</br><h1 style="clear:both">'+key+'</h1></br>'
         let boards = map[key]
         html += getBoardsHTML(boards)
     }
+    html = '<div id="archived-boards" class="sort-lists clearfix sortable">' + html + '</div>'
     return html
 }
 // get request url
-max = window.app.page.user.boards.getLast().board_id
-url = window.app.page.$url + '?' + String.uniqueID() + '&limit=100&wfl=1'
-httpGetAsync(url, (data) => {
-    // handle boards data
-    let parsed = JSON.parse(data)
-    let boards = parsed.user.boards;
-    let inta = 97;
-    let intz = 122;
-    let map = {}
-    let keyList = []
-    for(let board of boards){
-        let title = board.title;
-        board.sortFlag = '_'
-        if(title.length > 0){
-            let parsed = Pinyin.parse(title[0])
-            if(parsed.length > 0 && parsed[0].target){
-                board.sortFlag = Pinyin.parse(title[0])[0].target[0].toLowerCase()
+// window.addEventListener('load', function(){
+    max = window.app.page.user.boards.getLast().board_id
+    url = window.app.page.$url + '?' + String.uniqueID() + '&limit=100&wfl=1'
+    httpGetAsync(url, (data) => {
+        // handle boards data
+        let parsed = JSON.parse(data)
+        let boards = parsed.user.boards;
+        let inta = 97;
+        let intz = 122;
+        let map = {}
+        let keyList = []
+        for(let board of boards){
+            let title = board.title;
+            board.sortFlag = '_'
+            if(title.length > 0){
+                let parsed = Pinyin.parse(title[0])
+                if(parsed.length > 0 && parsed[0].target){
+                    board.sortFlag = Pinyin.parse(title[0])[0].target[0].toLowerCase()
+                }
+            }
+            let key = board.sortFlag
+            if(map[key]){
+                map[key].push(board)
+            }
+            else{
+                map[key] = [board]
+                keyList.push(key)
             }
         }
-        let key = board.sortFlag
-        if(map[key]){
-            map[key].push(board)
+        keyList.sort(strcomp)
+        for(let key of keyList){
+            let boards = map[key]
+            boards.sort(boardComp)
         }
-        else{
-            map[key] = [board]
-            keyList.push(key)
-        }
-    }
-    keyList.sort(strcomp)
-    for(let key of keyList){
-        let boards = map[key]
-        boards.sort(boardComp)
-    }
-    console.log(keyList)
-    console.log(map)
-    document.getElementById("waterfall").style.display = "none";
-    document.querySelector('#user_page .wrapper').innerHTML += genHTML(keyList,map)
-})
-
-// TODO:handle css
-// var css = document.createElement("style");
-// css.type = "text/css";
-// css.innerHTML = "strong { color: red }";
-// document.body.appendChild(css);
+        document.getElementById("waterfall").style.display = "none";
+        document.querySelector('#user_page .wrapper').innerHTML += genHTML(keyList,map)
+        var css = document.createElement("style");
+        css.type = "text/css";
+        css.innerHTML = "\
+        #archived-boards {\
+            position: relative;\
+            min-height: 500px;\
+            margin: 16px auto 0;\
+        }\
+        #archived-boards .add-board {\
+            position: relative;\
+            float: left;\
+            margin: 0 0 15px 16px;\
+            left: auto;\
+            top: auto;\
+            width: 236px;\
+            height: 350px;\
+            background: #f6f5f5;\
+            background: rgba(255,255,255,.5);\
+            box-shadow: 0 1px 3px rgba(0,0,0,.02), 0 4px 8px rgba(0,0,0,.02);\
+            border-radius: 3px;\
+            overflow: hidden;\
+            -webkit-transition: transform .15s ease-in-out,box-shadow .15s ease-in-out;\
+            cursor: pointer;\
+        }";
+        document.body.appendChild(css);
+        
+    })
+// });
