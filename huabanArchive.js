@@ -14,10 +14,107 @@ function httpGetAsync(theUrl, callback) {
     xmlHttp.setRequestHeader("Accept", 'application/json');
     xmlHttp.send(null);
 }
+function strcomp(strA, strB) {
+    return strA.toLowerCase().localeCompare(strB.toLowerCase());
+}
+function boardComp(boardA,boardB){
+    let strA = boardA.title;
+    let strB = boardB.title;
+    return strcomp(strA,strB)
+}
+function getBoardHtml(board){
+    let pins = board.pins;
+    let pinHTML = '';
+    for(let i=0;i<pins.length;i++){
+        let pin = pins[i]
+        if(i == 0){
+            pinHTML += '<img src="//img.hb.aicdn.com/'+ pin.file.key +'" data-baiduimageplus-ignore="1" class="large">'
+        }
+        else{
+            pinHTML += '<img src="//img.hb.aicdn.com/'+ pin.file.key +'" data-baiduimageplus-ignore="1">'
+        }
+    }
+
+    return '<div data-id="'+ board.board_id +'" data-seq="'+ board.board_id +'"\
+    class="Board wfc inited">\
+    <div class="draglay"></div>\
+    <div title="拖动改变排序" class="drag-icon"></div><a href="/boards/'+ board.board_id +'/" target="_blank" class="link  x">' + pinHTML +'\
+        <div class="shadows">\
+            <div class="large-shadow"></div>\
+            <div class="shadow"></div>\
+            <div class="shadow"></div>\
+            <div class="shadow"></div>\
+        </div>\
+        <div class="over ">\
+            <h3>'+ board.title +'</h3>\
+            <h4></h4>\
+            <div class="pin-count">'+ board.pins.length +'</div>\
+        </div>\
+        <div class="board-cover-edit">\
+            <div href="#" class="btn btn12"><span class="text">设置封面</span></div>\
+        </div>\
+    </a><span class="attr-mark"></span>\
+    <div class="FollowBoard"><a href="#" onclick="return false;" class="edit btn btn14 wbtn"><strong> 编辑</strong><span></span></a></div>\
+</div>'
+}
+function getBoardsHTML(boards){
+    let html = ''
+    for(let board of boards){
+        html += getBoardHtml(board)
+    }
+    return html
+}
+function genHTML(keyList,map){
+    let html = '<div onclick="app.requireLogin(function() {app.showDialogBox(\'create_board\');});" class="wfc add-board"><div class="inner"><i></i><span>创建画板</span></div></div>'
+    for(let key of keyList){
+        html += '</br><h3>'+key+'</h3></br>'
+        let boards = map[key]
+        html += getBoardsHTML(boards)
+    }
+    return html
+}
 // get request url
 max = window.app.page.user.boards.getLast().board_id
 url = window.app.page.$url + '?' + String.uniqueID() + '&limit=100&wfl=1'
 httpGetAsync(url, (data) => {
     // handle boards data
-    console.log(data)
+    let parsed = JSON.parse(data)
+    let boards = parsed.user.boards;
+    let inta = 97;
+    let intz = 122;
+    let map = {}
+    let keyList = []
+    for(let board of boards){
+        let title = board.title;
+        board.sortFlag = '_'
+        if(title.length > 0){
+            let parsed = Pinyin.parse(title[0])
+            if(parsed.length > 0 && parsed[0].target){
+                board.sortFlag = Pinyin.parse(title[0])[0].target[0].toLowerCase()
+            }
+        }
+        let key = board.sortFlag
+        if(map[key]){
+            map[key].push(board)
+        }
+        else{
+            map[key] = [board]
+            keyList.push(key)
+        }
+    }
+    keyList.sort(strcomp)
+    for(let key of keyList){
+        let boards = map[key]
+        boards.sort(boardComp)
+    }
+    console.log(keyList)
+    console.log(map)
+    document.getElementById("waterfall").style.display = "none";
+    document.querySelector('#user_page .wrapper').innerHTML += genHTML(keyList,map)
 })
+
+// TODO:handle css
+// var css = document.createElement("style");
+// css.type = "text/css";
+// css.innerHTML = "strong { color: red }";
+// document.body.appendChild(css);
